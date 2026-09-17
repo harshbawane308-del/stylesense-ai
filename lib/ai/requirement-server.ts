@@ -1,0 +1,8 @@
+import { createHash } from "node:crypto";
+import { requirementAgent } from "./agents/requirement-agent";
+import type { Project } from "../firestore-types";
+import type { NormalizedRequirements } from "./requirement-schema";
+
+export type RequirementAnalysis = { originalUserRequirements: Project["designRequirements"] | null; normalizedRequirements: NormalizedRequirements; analyzedAt: string; analysisVersion: string; requirementsHash: string };
+export function requirementHash(project: Project) { return createHash("sha256").update(JSON.stringify({ requirements: project.requirements, designRequirements: project.designRequirements, name: project.name, garmentType: project.garmentType, targetGender: project.targetGender, targetCountry: project.targetCountry, season: project.season, style: project.style, fit: project.fit, color: project.color, preferredFabric: project.preferredFabric, texture: project.texture })).digest("hex"); }
+export async function analyzeProjectRequirements(project: Project): Promise<RequirementAnalysis> { const hash = requirementHash(project); const result = await requirementAgent.run({ project }); if (result.status !== "completed" || !result.normalizedRequirements) throw new Error(result.validation.errors[0] || "Requirement Agent failed."); return { originalUserRequirements: project.designRequirements || null, normalizedRequirements: result.normalizedRequirements as NormalizedRequirements, analyzedAt: new Date().toISOString(), analysisVersion: "requirement-v1", requirementsHash: hash }; }
