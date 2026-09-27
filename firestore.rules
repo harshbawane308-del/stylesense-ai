@@ -1,0 +1,41 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function owns(resource) { return signedIn() && resource.data.userId == request.auth.uid; }
+    function ownsProject() { return signedIn() && resource.data.userId == request.auth.uid; }
+    function projectCreate() { return signedIn() && request.resource.data.userId == request.auth.uid; }
+    function ownedProject(projectId) { return signedIn() && get(/databases/$(database)/documents/projects/$(projectId)).data.userId == request.auth.uid; }
+
+    match /users/{userId} {
+      allow read: if signedIn() && userId == request.auth.uid;
+      allow create, update: if signedIn() && userId == request.auth.uid && request.resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /projects/{projectId} {
+      allow create: if projectCreate();
+      allow read, update: if ownsProject();
+      allow delete: if false;
+    }
+
+    match /designs/{designId} {
+      allow create: if projectCreate() && ownedProject(request.resource.data.projectId);
+      allow read, update: if owns(resource);
+      allow delete: if false;
+    }
+
+    match /generations/{generationId} {
+      allow create: if projectCreate() && ownedProject(request.resource.data.projectId);
+      allow read: if owns(resource);
+      allow update, delete: if false;
+    }
+
+    match /techPacks/{techPackId} {
+      allow create: if projectCreate() && ownedProject(request.resource.data.projectId);
+      allow read, update: if owns(resource);
+      allow delete: if false;
+    }
+  }
+}
